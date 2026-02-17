@@ -168,7 +168,8 @@ function Overflow.load_config()
             fix_slots = true,
             require_sellvalue = true,
             require_edition = true,
-            indicator_pos = 2
+            indicator_pos = 2,
+            sorting_mode = 1
         }
     end
 end

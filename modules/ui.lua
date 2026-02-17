@@ -693,7 +693,7 @@ Overflow.overflowConfigTab = function()
 	})
 
     ovrf_nodes[#ovrf_nodes + 1] = create_toggle({
-		label = MP and localize("k_require_sell_values"),
+		label = localize("k_require_sell_values"),
 		active_colour = HEX("40c76d"),
 		ref_table = Overflow.config,
 		ref_value = "require_sellvalue",
@@ -703,7 +703,7 @@ Overflow.overflowConfigTab = function()
 	})
 
     ovrf_nodes[#ovrf_nodes + 1] = create_toggle({
-		label = MP and localize("k_require_edition"),
+		label = localize("k_require_edition"),
 		active_colour = HEX("40c76d"),
 		ref_table = Overflow.config,
 		ref_value = "require_edition",
