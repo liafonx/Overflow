@@ -1,25 +1,25 @@
 --manage buttons for the consumables
 function Card:create_overflow_ui()
-    if not self.ability.immutable then self.ability.immutable = {} end
-    if self.ability.immutable.overflow_amount and (to_big(self.ability.immutable.overflow_amount) == to_big(1) or to_big(self.ability.immutable.overflow_amount) == to_big(0)) then
-        self.ability.immutable.overflow_amount = nil
+    if self.qty and self.qty <= 1 then
+        self.qty = nil
     end
-    if self.ability.immutable.overflow_amount and self.ability.immutable.overflow_amount_text ~= "" and (self.area == G.consumeables or self.bypass) then
+    if self.qty and self.qty_text ~= "" and (self.area ~= G.jokers or self.bypass) then
         if self.children.overflow_ui then
             self.children.overflow_ui:remove()
             self.children.overflow_ui = nil 
         end
-        self.ability.immutable.overflow_amount_text = self.ability.immutable.overflow_amount_text or number_format(self.ability.immutable.overflow_amount)
+        self.qty_text = self.qty_text or number_format(self.qty)
+        if self:isInfinite() then self:setInfinite(true) end --recreate text without duped code
         self.children.overflow_ui = UIBox {
 			definition = {n=G.UIT.C, config={align = "tm"}, nodes={
                 {n=G.UIT.C, config={ref_table = self, align = "tm",maxw = 1.5, padding = 0.1, r=0.08, minw = 0.45, minh = 0.45, hover = true, shadow = true, colour = G.C.UI.BACKGROUND_INACTIVE}, nodes={
                   {n=G.UIT.T, config={text = "x",colour = G.C.RED, scale = 0.35, shadow = true}},
-                  {n=G.UIT.T, config={ref_table = self.ability.immutable, ref_value = 'overflow_amount_text',colour = G.C.WHITE, scale = 0.35, shadow = true}}
+                  {n=G.UIT.T, config={ref_table = self, ref_value = 'qty_text',colour = G.C.WHITE, scale = 0.35, shadow = true}}
                 }}
               }
 			},
 			config = {
-				align = "tm",
+				align = Overflow.get_alignment(Overflow.config.indicator_pos) or "tm",
 				bond = 'Strong',
 				parent = self
 			},
@@ -33,7 +33,7 @@ function Card:create_overflow_ui()
             self.children.overflow_ui:remove()
             self.children.overflow_ui = nil 
         end
-        self.ability.immutable.overflow_amount = nil
+        self.qty = nil
     end
 end
 
@@ -41,8 +41,7 @@ local card_load_ref = Card.load
 function Card:load(cardTable, other_card)
 	card_load_ref(self, cardTable, other_card)
 	if self.ability then
-        if not self.ability.immutable then self.ability.immutable = {} end
-		if self.ability.immutable.overflow_amount then
+		if self.qty then
 			self:create_overflow_ui()
 		end
 	end
@@ -50,7 +49,7 @@ end
 
 local highlight_ref = Card.highlight
 function Card:highlight(is_highlighted)
-    if self.area == G.consumeables and self.config.center.set ~= "Joker" and is_highlighted and self.ability.immutable.overflow_amount and to_big(self.ability.immutable.overflow_amount) > to_big(1) then
+    if self.area == G.consumeables and self.config.center.set ~= "Joker" and is_highlighted and self.qty and to_big(self.qty) > to_big(1) then
         local y = Overflow.can_bulk_use(self) and 0.45 or 0
         if  Overflow.can_bulk_use(self) then
             self.children.bulk_use = UIBox {
@@ -133,82 +132,84 @@ function Card:highlight(is_highlighted)
             }
             y = y + 0.5
         end
-        self.children.split_one = UIBox {
-            definition = {
-                n = G.UIT.ROOT,
-                config = {
-                    minh = 0.3,
-                    maxh = 0.5,
-                    minw = 0.4,
-                    maxw = 4,
-                    r = 0.08,
-                    padding = 0.1,
-                    align = 'cm',
-                    colour = G.C.DARK_EDITION,
-                    shadow = true,
-                    button = 'split_one',
-                    func = 'can_split_one',
-                    ref_table = self
-                },
-                nodes = {
-                    {
-                        n = G.UIT.T,
-                        config = {
-                            text = localize("k_split_one"),
-                            scale = 0.3,
-                            colour = G.C.UI.TEXT_LIGHT
+        if not self:isInfinite() then
+            self.children.split_one = UIBox {
+                definition = {
+                    n = G.UIT.ROOT,
+                    config = {
+                        minh = 0.3,
+                        maxh = 0.5,
+                        minw = 0.4,
+                        maxw = 4,
+                        r = 0.08,
+                        padding = 0.1,
+                        align = 'cm',
+                        colour = G.C.DARK_EDITION,
+                        shadow = true,
+                        button = 'split_one',
+                        func = 'can_split_one',
+                        ref_table = self
+                    },
+                    nodes = {
+                        {
+                            n = G.UIT.T,
+                            config = {
+                                text = localize("k_split_one"),
+                                scale = 0.3,
+                                colour = G.C.UI.TEXT_LIGHT
+                            }
                         }
                     }
-                }
-            },
-            config = {
-                align = 'bmi',
-                offset = {
-                    x = 0,
-                    y = y + 0.5
                 },
-                bond = 'Strong',
-                parent = self
-            }
-        }
-        self.children.split_half = UIBox {
-            definition = {
-                n = G.UIT.ROOT,
                 config = {
-                    minh = 0.3,
-                    maxh = 0.5,
-                    minw = 0.4,
-                    maxw = 4,
-                    r = 0.08,
-                    padding = 0.1,
-                    align = 'cm',
-                    colour = G.C.DARK_EDITION,
-                    shadow = true,
-                    button = 'split_half',
-                    func = 'can_split_half',
-                    ref_table = self
-                },
-                nodes = {
-                    {
-                        n = G.UIT.T,
-                        config = {
-                            text = localize("k_split_half"),
-                            scale = 0.3,
-                            colour = G.C.UI.TEXT_LIGHT
+                    align = 'bmi',
+                    offset = {
+                        x = 0,
+                        y = y + 0.5
+                    },
+                    bond = 'Strong',
+                    parent = self
+                }
+            }
+            self.children.split_half = UIBox {
+                definition = {
+                    n = G.UIT.ROOT,
+                    config = {
+                        minh = 0.3,
+                        maxh = 0.5,
+                        minw = 0.4,
+                        maxw = 4,
+                        r = 0.08,
+                        padding = 0.1,
+                        align = 'cm',
+                        colour = G.C.DARK_EDITION,
+                        shadow = true,
+                        button = 'split_half',
+                        func = 'can_split_half',
+                        ref_table = self
+                    },
+                    nodes = {
+                        {
+                            n = G.UIT.T,
+                            config = {
+                                text = localize("k_split_half"),
+                                scale = 0.3,
+                                colour = G.C.UI.TEXT_LIGHT
+                            }
                         }
                     }
-                }
-            },
-            config = {
-                align = 'bmi',
-                offset = {
-                    x = 0,
-                    y = y + 1
                 },
-                bond = 'Strong',
-                parent = self
+                config = {
+                    align = 'bmi',
+                    offset = {
+                        x = 0,
+                        y = y + 1
+                    },
+                    bond = 'Strong',
+                    parent = self
+                }
             }
-        }
+        end
         if Overflow.can_merge(self) then
             self.children.merge = UIBox {
                 definition = {
@@ -440,7 +441,7 @@ end
 
 G.FUNCS.can_bulk_use = function(e)
 	local card = e.config.ref_table
-	if (card.config.center.bulk_use or Overflow.bulk_use_functions[card.config.center.key]) and (not card.config.center.can_bulk_use or Overflow.can_bulk_use(card)) and to_big(card.ability.immutable.overflow_amount) > to_big(1) then
+	if (card.config.center.bulk_use or Overflow.bulk_use_functions[card.config.center.key]) and (not card.config.center.can_bulk_use or Overflow.can_bulk_use(card)) and to_big(card.qty) > to_big(1) then
         e.config.colour = G.C.SECONDARY_SET[card.config.center.set]
         e.config.button = 'bulk_use'
 		e.states.visible = true
@@ -453,7 +454,7 @@ end
 
 G.FUNCS.bulk_use = function(e)
 	local card = e.config.ref_table
-    card.ability.overflow_used_amount = card.ability.immutable.overflow_amount
+    card.qty_used = card:getQty()
     Overflow.set_amount(card, nil)
     card.ability.bypass_aleph = true
     if card.children.overflow_ui then
@@ -465,7 +466,7 @@ end
 
 G.FUNCS.can_split_one = function(e)
 	local card = e.config.ref_table
-	if to_big(card.ability.immutable.overflow_amount or 0) > to_big(1) then
+	if to_big(card.qty or 0) > to_big(1) then
         e.config.colour = G.C.SECONDARY_SET[card.config.center.set]
         e.config.button = 'split_one'
 		e.states.visible = true
@@ -482,13 +483,19 @@ G.FUNCS.split_one = function(e)
 	local card = e.config.ref_table
     local new_card = copy_card(card)
     Overflow.set_amount(new_card, nil)
-    Overflow.set_amount(card, card.ability.immutable.overflow_amount - 1)
+    Overflow.set_amount(card, card.qty - 1)
     new_card:add_to_deck()
     card:set_cost()
     new_card:set_cost()
-    new_card.ability.immutable.overflow_used_amount = nil
-    card.ability.immutable.overflow_used_amount = nil
+    new_card.qty_used = nil
+    card.qty_used = nil
     new_card.ability.split = true
+    G.E_MANAGER:add_event(Event{
+        func = function()
+            new_card.ability.split = nil
+            return true
+        end
+    })
     G.consumeables:emplace(new_card)
     G.GAME.modifiers.entr_twisted = mod
 end
@@ -510,7 +517,7 @@ G.FUNCS.merge = function(e)
 	local card = e.config.ref_table
     local v = Overflow.can_merge(card)
     if v then
-        Overflow.set_amount(v, (v.ability.immutable.overflow_amount or 1) + (card.ability.immutable.overflow_amount or 1))
+        Overflow.set_amount(v, (v.qty or 1) + (card.qty or 1))
         card.ability.bypass_aleph = true
         card:start_dissolve()
         G.E_MANAGER:add_event(Event({
@@ -526,7 +533,7 @@ end
 
 G.FUNCS.can_split_half = function(e)
 	local card = e.config.ref_table
-	if to_big(card.ability.immutable.overflow_amount) > to_big(1) then
+	if to_big(card.qty) > to_big(1) then
         e.config.colour = G.C.SECONDARY_SET[card.config.center.set]
         e.config.button = 'split_half'
 		e.states.visible = true
@@ -542,18 +549,22 @@ G.FUNCS.split_half = function(e)
     G.GAME.modifiers.entr_twisted = nil
 	local card = e.config.ref_table
     local new_card = copy_card(card)
-    local top_half = math.floor(card.ability.immutable.overflow_amount/2)
-    local bottom_half = card.ability.immutable.overflow_amount - top_half
+    local top_half = math.floor(card.qty/2)
+    local bottom_half = card.qty - top_half
     new_card.bypass = true
     card.bypass = true
     Overflow.set_amount(new_card, bottom_half)
     Overflow.set_amount(card, top_half)
     new_card:add_to_deck()
     new_card.ability.split = true
+    G.E_MANAGER:add_event(Event{
+        func = function()
+            new_card.ability.split = nil
+            return true
+        end
+    })
     card:set_cost()
     new_card:set_cost()
-    new_card.ability.immutable.overflow_used_amount = nil
-    card.ability.immutable.overflow_used_amount = nil
     G.consumeables:emplace(new_card)
     new_card:create_overflow_ui()
     card:create_overflow_ui()
@@ -585,7 +596,7 @@ G.FUNCS.merge_all = function(e)
         if Overflow.can_merge(v, card) and card ~= v then
             v.ability.bypass_aleph = true
             v:start_dissolve()
-            Overflow.set_amount(card, (v.ability.immutable.overflow_amount or 1) + (card.ability.immutable.overflow_amount or 1))
+            Overflow.set_amount(card, (v.qty or 1) + (card.qty or 1))
         end
     end
     G.E_MANAGER:add_event(Event({
@@ -620,7 +631,7 @@ end
 G.FUNCS.mass_use = function(e)
 	local card = e.config.ref_table
     card.mass_use = true
-    card.ability.immutable.overflow_amount = card.ability.immutable.overflow_amount or 1
+    card.qty = card.qty or 1
     G.FUNCS.bulk_use(e)
 end
 
@@ -636,7 +647,7 @@ G.FUNCS.use_card = function(e)
         end
         if c then
             c.mass_use = true
-            c.ability.immutable.overflow_amount = c.ability.immutable.overflow_amount or 1
+            c.qty = c.qty or 1
             G.E_MANAGER:add_event(Event({
                 trigger = 'after',
                 func = function()
@@ -681,14 +692,46 @@ Overflow.overflowConfigTab = function()
         end,
 	})
 
-    ovrf_nodes[#ovrf_nodes + 1] = create_option_cycle({
-		label = localize("sorting_mode"),
-		scale = 0.8,
-		w = 8,
-		options = {localize("sorting_default"), localize("sorting_lh"), localize("sorting_ch"), localize("sorting_mh"), localize("sorting_sh"), localize("sorting_ph"), localize("sorting_ll"), localize("sorting_cl"), localize("sorting_ml"), localize("sorting_sl"), localize("sorting_pl")},
-		opt_callback = "update_sorting_mode",
-		current_option = Overflow.config.sorting_mode,
+    ovrf_nodes[#ovrf_nodes + 1] = create_toggle({
+		label = MP and localize("k_require_sell_values"),
+		active_colour = HEX("40c76d"),
+		ref_table = Overflow.config,
+		ref_value = "require_sellvalue",
+		callback = function()
+            Overflow.save_config()
+        end,
 	})
+
+    ovrf_nodes[#ovrf_nodes + 1] = create_toggle({
+		label = MP and localize("k_require_edition"),
+		active_colour = HEX("40c76d"),
+		ref_table = Overflow.config,
+		ref_value = "require_edition",
+		callback = function()
+            Overflow.save_config()
+        end,
+	})
+
+    ovrf_nodes[#ovrf_nodes + 1] = create_option_cycle({
+        label = localize("k_indicator_pos"),
+        scale = 0.7,
+        w = 7,
+        options = {localize("k_center"), localize("k_top_center"), localize("k_bottom_center"), 
+            localize("k_top_right"), localize("k_top_left"),
+            localize("k_bottom_right"), localize("k_bottom_left")},
+        opt_callback = 'overflow_update_alignment',
+        current_option = Overflow.config.indicator_pos,
+    })
+
+    ovrf_nodes[#ovrf_nodes + 1] = create_option_cycle({
+        label = localize("sorting_mode"),
+        scale = 0.8,
+        w = 8,
+        options = {localize("sorting_default"), localize("sorting_lh"), localize("sorting_ph"), localize("sorting_ll"), localize("sorting_pl")},
+        opt_callback = "update_sorting_mode",
+        current_option = Overflow.config.sorting_mode,
+    })
+
 	return {
 		n = G.UIT.ROOT,
 		config = {
@@ -703,6 +746,15 @@ Overflow.overflowConfigTab = function()
 		nodes = ovrf_nodes,
 	}
 end
+
+G.FUNCS.overflow_update_alignment = function(e)
+	Overflow.config.indicator_pos = e.to_key
+	if G.consumeables then
+	    for k, v in pairs(G.consumeables.cards) do
+			v:create_overflow_ui()
+		end
+	end
+end 
 
 if not SMODS then
     function noSMODSoverflowConfigTab()
@@ -728,6 +780,34 @@ if not SMODS then
                             callback = function()
                                 Overflow.save_config()
                             end,
+                        }),
+                        create_toggle({
+                            label = localize("k_require_sell_values"),
+                            active_colour = HEX("40c76d"),
+                            ref_table = Overflow.config,
+                            ref_value = "require_sellvalue",
+                            callback = function()
+                                Overflow.save_config()
+                            end,
+                        }),
+                        create_toggle({
+                            label = localize("k_require_edition"),
+                            active_colour = HEX("40c76d"),
+                            ref_table = Overflow.config,
+                            ref_value = "require_edition",
+                            callback = function()
+                                Overflow.save_config()
+                            end,
+                        }),
+                        create_option_cycle({
+                            label = localize("k_indicator_pos"),
+                            scale = 0.7,
+                            w = 7,
+                            options = {localize("k_center"), localize("k_top_center"), localize("k_bottom_center"), 
+                                localize("k_top_right"), localize("k_top_left"),
+                                localize("k_bottom_right"), localize("k_bottom_left")},
+                            opt_callback = 'overflow_update_alignment',
+                            current_option = Overflow.config.indicator_pos,
                         }),
                         create_option_cycle({
                             label = localize("sorting_mode"),

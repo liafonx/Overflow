@@ -11,6 +11,17 @@ return {
             k_fix_slots = "Stacked non-negatives take up the correct amount of slots",
             k_fix_slots_mp = "Stacked non-negatives take up the correct amount of slots (Forced on when in MP Lobby)",
             k_only_stack_negatives_mp = "Only stack negative consumables (Forced on when in MP Lobby)",
+            k_require_sell_values = "Require identical sell values to stack",
+            k_require_edition = "Require identical editions to stack",
+            k_indicator_pos = "Stack Indicator Position",
+
+            k_center = "Center",
+            k_top_center = "Top Center",
+            k_bottom_center = "Bottom Center",
+            k_top_left = "Top Left",
+            k_top_right = "Top Right",
+            k_bottom_left = "Bottom Left",
+            k_bottom_right = "Bottom Right",
 
             sorting_mode = "Poker Hand UI Sorting Mode",
             sorting_default = "Default",

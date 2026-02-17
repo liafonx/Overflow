@@ -14,14 +14,17 @@ function Overflow.bulk_use(card, area, amount)
 end
 
 function Overflow.can_bulk_use(card)
+    if card:isInfinite() then return false end
     if type(card.config.center.can_bulk_use) == "boolean" then return card.config.center.can_bulk_use end
     if type(card.config.center.can_bulk_use) == "function" then return card.config.center:can_bulk_use(card) end
     return card.config.center.can_bulk_use or Overflow.bulk_use_functions[card.config.center.key] or card.config.center.bulk_use
 end
 
 function Overflow.can_merge(self, card, bypass, ignore_area)
+    if self:isInfinite() then return false end
     if self.dissolve or (card and card.dissolve) then return false end
-    if card and self.sell_cost ~= card.sell_cost then return false end
+    if card and self.sell_cost ~= card.sell_cost and Overflow.config.require_sellvalue then return false end
+
     if Overflow.is_blacklisted(self) or Overflow.is_blacklisted(card) or (self.area ~= G.consumeables and not ignore_area) or self.config.center.set == "Joker" then return end
     if not card then
         if Overflow.config.only_stack_negatives or (MP and MP.LOBBY and MP.LOBBY.code) then
@@ -35,7 +38,7 @@ function Overflow.can_merge(self, card, bypass, ignore_area)
             end
         else
             local v, i = Overflow.TableMatches(G.consumeables.cards, function(v, i)
-                if (not v.edition and not self.edition) or (v.edition and self.edition and v.edition.key == self.edition.key) then
+                if (not v.edition and not self.edition) or (v.edition and self.edition and v.edition.key == self.edition.key) or not Overflow.config.require_edition then
                     return v.config.center.key == self.config.center.key and (v ~= self or bypass)
                 end
             end)
@@ -57,20 +60,28 @@ function Overflow.can_merge(self, card, bypass, ignore_area)
     end
 end
 
-function Overflow.set_amount(card, amount)
+function Overflow.set_amount(card, amount, no_anims)
     if card then
         if to_big(amount or 0) < to_big(1e100) then
             amount = to_number(amount)
         end
-        if not card.ability.immutable then card.ability.immutable = {} end
-        card.ability.immutable.overflow_amount = amount
-        if to_big(card.ability.immutable.overflow_amount or 0) < to_big(1e100) then
-            card.ability.immutable.overflow_amount = to_number(card.ability.immutable.overflow_amount)
+        card.qty = amount
+        if to_big(card.qty or 0) < to_big(1e100) then
+            card.qty = to_number(card.qty)
         end
-        card.ability.immutable.overflow_amount_text = amount and number_format(amount) or "s"
+        card.qty_text = amount and number_format(amount) or "s"
         card:set_cost()
         card:create_overflow_ui()
-        card.ability.immutable.overflow_used_amount = nil
+        if not no_anims then
+            G.E_MANAGER:add_event(Event{
+                func = function()
+                    card.qty_used = nil
+                    return true
+                end
+            })
+        else
+            card.qty_used = nil
+        end
     end
 end
 
@@ -81,11 +92,13 @@ function Overflow.weighted_random(pool, pseudoseed)
     end
     local selection = pseudorandom(pseudoseed) * (poolsize-1) + 1
     for k,v in pairs(pool) do
-       selection = selection - v[1] 
+       selection = selection - v[1]*1000
+
        if (to_big(selection) <= to_big(0)) then
           return v[2]
        end
     end
+    return pool[1][2]
 end
 
 function Overflow.is_blacklisted(card)
@@ -96,7 +109,7 @@ end
 function CardArea:get_total_count()
     local total = 0
     for i, v in ipairs(self.cards) do
-        total = total + (v and v.ability and v.ability.immutable and v.ability.immutable.overflow_amount or 1)
+        total = total + (v and v.qty or 1)
     end
     return total
 end
@@ -105,7 +118,7 @@ function Overflow.can_mass_use(set, area)
     local total = 0
     if area == G.pack_cards or area == G.shop_jokers or area == G.shop_booster or area == G.shop_vouchers then return nil end
     for i, v in pairs(area) do
-        if v.config.center.set == set then total = total + 1 end
+        if v.config.center.set == set and not v.config.center.ignore_allplanets then total = total + 1 end
     end
     return total > 1 and total or nil
 end
@@ -152,11 +165,32 @@ function Overflow.load_config()
     else    
         return {
             only_stack_negatives = true,
-            fix_slots = true
+            fix_slots = true,
+            require_sellvalue = true,
+            require_edition = true,
+            indicator_pos = 2
         }
     end
 end
 if not Overflow.config then Overflow.config = Overflow.load_config() end
+
+function Overflow.should_skip_animations(strict)
+    if Talisman and Talisman.config_file.disable_anims then return true end
+    if Handy and Handy.animation_skip.get_value() >= (strict and 4 or 3) then return true end
+end
+
+function Overflow.get_alignment(align)
+    return ({
+		'cm', 
+		'tm', 
+		'bm', 
+		'tr', 
+		'tl',
+		'br', 
+		'bl'
+	})[align]
+end
+
 
 function Overflow.sort(hands, vanilla)
     if Overflow.config.sorting_mode == 2 then

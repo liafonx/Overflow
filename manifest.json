@@ -12,5 +12,9 @@
     "dependencies": [
     ],
     "conflicts": [
+    ],
+    "provides": [
+        "incantation",
+        "noituus"
     ]
 }
