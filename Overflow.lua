@@ -135,11 +135,8 @@ require("overflow/hooks")
 require("overflow/utils")
 require("overflow/bulk_use")
 
-if not to_big then
-    to_big = function(num) return num or -1e300 end
-    is_number = function(num) return type(num) == "number" end
-    to_number = function(num) return num or -1e300 end
-end
-
 Incantation = {}
 Noituus = {CustomPluralNames = {}}
+to_big = to_big or function(num) return num or -1e300 end
+is_number = is_number or function(num) return type(num) == "number" end
+to_number = to_number or function(num) return num or -1e300 end

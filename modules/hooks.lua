@@ -240,7 +240,6 @@ if not SMODS then
         end
         return init_localization_ref(...)
     end
-
     function create_UIBox_current_hands(simple)
         local hands = {
 
