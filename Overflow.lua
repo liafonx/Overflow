@@ -34,7 +34,7 @@ function PerkeoOverride(self, orig_card, context)
                         cards[#cards+1] = v
                     end
                 end
-                card = pseudorandom_element(G.consumeables.cards, pseudoseed('perkeo'))
+                card = pseudorandom_element(cards, pseudoseed('perkeo'))
             else
                 local cards = {}
                 for i, v in ipairs(G.consumeables.cards) do

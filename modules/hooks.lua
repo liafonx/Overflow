@@ -16,7 +16,7 @@ function CardArea:emplace(card, ...)
                     return v.config.center.key == card.config.center.key and v.edition and v.edition.negative and v ~= self
                 end)
                 if v then
-                    Overflow.set_amount(v, (v.qty or 1) + (card.qty or 1))
+                    Overflow.set_amount(v, (v.qty or 1) + (card.qty or 1), true)
                     card.states.visible = false
                     card.ability.bypass_aleph = true
                     card:start_dissolve()
@@ -31,7 +31,7 @@ function CardArea:emplace(card, ...)
                 end
             end)
             if v then
-                Overflow.set_amount(v, (v.qty or 1) + (card.qty or 1))
+                Overflow.set_amount(v, (v.qty or 1) + (card.qty or 1), true)
                 card.states.visible = false
                 card.ability.bypass_aleph = true
                 card:start_dissolve()
@@ -56,7 +56,7 @@ function Card:set_edition(edition, ...)
                     return v.config.center.key == self.config.center.key and v.edition and v.edition.negative and v ~= self
                 end)
                 if v then
-                    Overflow.set_amount(v, (v.qty or 1) + (self.qty or 1))
+                    Overflow.set_amount(v, (v.qty or 1) + (self.qty or 1), true)
                     self.states.visible = false
                     self.ability.bypass_aleph = true
                     self:start_dissolve()
@@ -71,7 +71,7 @@ function Card:set_edition(edition, ...)
                 end
             end)
             if v then
-                Overflow.set_amount(v, (v.qty or 1) + (self.qty or 1))
+                Overflow.set_amount(v, (v.qty or 1) + (self.qty or 1), true)
                 self.states.visible = false
                 self.ability.bypass_aleph = true
                 self:start_dissolve()
@@ -206,7 +206,7 @@ function Card:load(cardTable, other_card)
 	card_load_ref(self, cardTable, other_card)
 	if self.ability then
         self.qty = cardTable.overflow_amount
-        if cardTable.overflow_infinite then self.qty = math.huge end
+        if cardTable.overflow_infinite then self.overflow_infinite = true end
         if self.qty then
             self.bypass = true
             self:create_overflow_ui()
@@ -278,20 +278,24 @@ function Card:set_stack_display()
 end
 
 function Card:getInfinite()
-    return (self.qty or 1) >= math.huge
+    return self.overflow_infinite
 end
 Card.isInfinite = Card.getInfinite
 
 function Card:setInfinite(no_ui)
-    self.qty = math.huge
+    self.overflow_infinite = true
     self.qty_text = "Infinity"
     if not no_ui then
         self:create_overflow_ui()
     end
 end
 
-function Card:toggleInfinite()
-    self.qty = self:isInfinite() and nil or math.huge
+function Card:toggleInfinite(no_ui)
+    self.overflow_infinite = not self.overflow_infinite
+    if not no_ui then
+        self.qty_text = nil
+        self:create_overflow_ui()
+    end
 end
 
 function Card:addQty(q)
