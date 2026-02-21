@@ -12,41 +12,43 @@ debugplus.handleKeys(self, key, dt)
 '''
 position = "at"
 payload = '''
-local debugplus = require("debugplus.core")
-local ref = debugplus.handleKeys
-debugplus.handleKeys = function(controller, key, dt)
-    if controller.hovering.target and controller.hovering.target:is(Card) then
-        local _card = controller.hovering.target
-        if key == "c" then
-            local _area
-            if _card.ability.set == 'Joker' then
-                _area = G.jokers
-            elseif _card.playing_card then
-                if G.hand and G.hand.config.card_count ~= 0 then
-                    _area = G.hand
-                else 
-                    _area = G.deck
+local ok, debugplus = pcall(require, "debugplus.core")
+if ok and debugplus and debugplus.handleKeys then
+    local ref = debugplus.handleKeys
+    debugplus.handleKeys = function(controller, key, dt)
+        if controller.hovering.target and controller.hovering.target:is(Card) then
+            local _card = controller.hovering.target
+            if key == "c" then
+                local _area
+                if _card.ability.set == 'Joker' then
+                    _area = G.jokers
+                elseif _card.playing_card then
+                    if G.hand and G.hand.config.card_count ~= 0 then
+                        _area = G.hand
+                    else
+                        _area = G.deck
+                    end
+                elseif _card.ability.consumeable then
+                    _area = G.consumeables
                 end
-            elseif _card.ability.consumeable then
-                _area = G.consumeables
+                if _area == nil then
+                    return print("Error: Trying to dup card without an area")
+                end
+                local new_card = copy_card(_card, nil, nil, _card.playing_card, nil, true)
+                new_card:add_to_deck()
+                if _card.playing_card then
+                    table.insert(G.playing_cards, new_card)
+                end
+                _area:emplace(new_card)
+            else
+                ref(controller, key, dt)
             end
-            if _area == nil then
-                return print("Error: Trying to dup card without an area")
-            end
-            local new_card = copy_card(_card, nil, nil, _card.playing_card, nil, true)
-            new_card:add_to_deck()
-            if _card.playing_card then
-                table.insert(G.playing_cards, new_card)
-            end
-            _area:emplace(new_card)
         else
             ref(controller, key, dt)
         end
-    else
-        ref(controller, key, dt)
     end
+    debugplus.handleKeys(self, key, dt)
 end
-debugplus.handleKeys(self, key, dt)
 '''
 match_indent = true
 overwrite = false
@@ -122,91 +124,51 @@ overwrite = false
 
 [[patches]]
 [patches.pattern]
-target = "main.lua"
-pattern = '''function love.load()'''
-position = "before"
-payload = '''
-Overflow = {}
-Overflow.blacklist = {
-
-}
-Overflow.mass_use_sets = {
-    Planet = true
-}
-Overflow.bulk_use_caps = {
-}
-'''
+target = "card.lua"
+pattern = '''#G.consumeables.cards + G.GAME.consumeable_buffer < G.consumeables.config.card_limit'''
+position = "at"
+payload = '''Overflow.has_consumeable_space(nil, true)'''
 match_indent = true
+times = 40
 
 [[patches]]
 [patches.pattern]
-target = "cardarea.lua"
-pattern = '''self.config.card_count = #self.cards'''
+target = "card.lua"
+pattern = '''G.consumeables.config.card_limit > #G.consumeables.cards'''
+position = "at"
+payload = '''Overflow.has_consumeable_space(nil, false)'''
+match_indent = true
+times = 20
+
+[[patches]]
+[patches.pattern]
+target = "card.lua"
+pattern = '''G.consumeables.config.card_limit - #G.consumeables.cards'''
+position = "at"
+payload = '''Overflow.get_consumeable_slots_remaining(nil, false)'''
+match_indent = true
+times = 20
+
+[[patches]]
+[patches.pattern]
+target = "card.lua"
+pattern = '''#G.consumeables.cards < G.consumeables.config.card_limit'''
+position = "at"
+payload = '''Overflow.has_consumeable_space(nil, false)'''
+match_indent = true
+times = 40
+
+[[patches]]
+[patches.pattern]
+target = '''=[SMODS _ "src/overrides.lua"]'''
+pattern = '''for _, v in ipairs(handlist or G.handlist) do'''
 position = "at"
 payload = '''
-self.config.card_count = #self.cards
-if Overflow.config.fix_slots or (MP and MP.LOBBY and MP.LOBBY.code) then
-    if self == G.consumeables then
-        for i, v in ipairs(self.cards) do   
-            if not v.edition or not v.edition.card_limit then
-                if v.qty then
-                    if to_big(v.qty) > to_big(1) then
-                        self.config.card_count = self.config.card_count + math.min(1e100, to_number(v.qty) - 1)
-                    end
-                end
-            end
-        end
-    end
-    if to_big(self.config.card_count) > to_big(1e100) then
-        self.config.card_count = 1e100
-    end
-end
+local overflow_hands = handlist or G.handlist
+	if not handlist then
+		overflow_hands = Overflow.sort(G.handlist)
+	end
+	for _, v in ipairs(overflow_hands) do
 '''
 match_indent = true
-
-
-# [[patches]]
-# [patches.pattern]
-# target = '''=[SMODS _ "src/overrides.lua"]'''
-# pattern = '''
-#     for _, v in ipairs(G.handlist) do
-# 		if G.GAME.hands[v].visible then
-# 			table.insert(visible_hands, v)
-# 		end
-# 	end
-# '''
-# position = "after"
-# payload = '''
-# visible_hands = Overflow.sort(visible_hands)
-# '''
-# match_indent = true
-# times = 4
-
-# [[patches]]
-# [patches.pattern]
-# target = '''=[SMODS _ "src/overrides.lua"]'''
-# pattern = '''
-# local text, disp_text, loc_disp_text = 'NULL', 'NULL', 'NULL'
-# 	for _, v in ipairs(G.handlist) do
-# '''
-# position = "at"
-# payload = '''
-# 	local text, disp_text, loc_disp_text = 'NULL', 'NULL', 'NULL'
-# 	for i, v in ipairs(G.handlist) do
-# '''
-# match_indent = true
-
-# [[patches]]
-# [patches.pattern]
-# target = '''=[SMODS _ "src/overrides.lua"]'''
-# pattern = '''
-# for _, v in ipairs(G.handlist) do
-# '''
-# position = "at"
-# payload = '''
-# local hands = copy_table(G.handlist)
-# hands = Overflow.sort(hands)
-# for _, v in ipairs(hands) do
-# '''
-# match_indent = true
-# times = 4
+times = 2

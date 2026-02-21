@@ -1,2 +1,15 @@
 
 .lovelyignore
+.agent/
+.agents/
+.claude/
+.cursor/
+INIT.md
+AGENT.md
+mod.config.json
+docs/*
+!docs/description.md
+!docs/NEXUSMODS_DESCRIPTION.txt
+.tmp/
+release/
+scripts/

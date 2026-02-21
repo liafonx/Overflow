@@ -5,27 +5,75 @@ priority = 0
 
 [[patches]]
 [patches.module]
-source = "modules/hooks.lua"
+source = "src/core/config.lua"
 before = "main.lua"
-name = "overflow/hooks"
+name = "overflow/core/config"
 
 [[patches]]
 [patches.module]
-source = "modules/ui.lua"
+source = "src/core/slots.lua"
 before = "main.lua"
-name = "overflow/ui"
+name = "overflow/core/slots"
 
 [[patches]]
 [patches.module]
-source = "modules/utils.lua"
+source = "src/core/merge.lua"
 before = "main.lua"
-name = "overflow/utils"
+name = "overflow/core/merge"
 
 [[patches]]
 [patches.module]
-source = "modules/vanilla_bulk_use.lua"
+source = "src/core/quantity.lua"
 before = "main.lua"
-name = "overflow/bulk_use"
+name = "overflow/core/quantity"
+
+[[patches]]
+[patches.module]
+source = "src/integrations/bulk_use.lua"
+before = "main.lua"
+name = "overflow/integrations/bulk_use"
+
+[[patches]]
+[patches.module]
+source = "src/integrations/perkeo.lua"
+before = "main.lua"
+name = "overflow/integrations/perkeo"
+
+[[patches]]
+[patches.module]
+source = "src/hooks/cardarea.lua"
+before = "main.lua"
+name = "overflow/hooks/cardarea"
+
+[[patches]]
+[patches.module]
+source = "src/hooks/card.lua"
+before = "main.lua"
+name = "overflow/hooks/card"
+
+[[patches]]
+[patches.module]
+source = "src/hooks/button_callbacks.lua"
+before = "main.lua"
+name = "overflow/hooks/button_callbacks"
+
+[[patches]]
+[patches.module]
+source = "src/ui/badge.lua"
+before = "main.lua"
+name = "overflow/ui/badge"
+
+[[patches]]
+[patches.module]
+source = "src/ui/actions.lua"
+before = "main.lua"
+name = "overflow/ui/actions"
+
+[[patches]]
+[patches.module]
+source = "src/ui/config_tab.lua"
+before = "main.lua"
+name = "overflow/ui/config_tab"
 
 [[patches]]
 [patches.copy]
@@ -35,6 +83,12 @@ sources = ["Overflow.lua"]
 
 [[patches]]
 [patches.module]
-source = 'localization/en-us.lua'
-before = 'main.lua'
-name = 'overflow/localization/en-us'
+source = "localization/en-us.lua"
+before = "main.lua"
+name = "overflow/localization/en-us"
+
+[[patches]]
+[patches.module]
+source = "localization/zh_CN.lua"
+before = "main.lua"
+name = "overflow/localization/zh_CN"
