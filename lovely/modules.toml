@@ -17,33 +17,15 @@ name = "overflow/core/slots"
 
 [[patches]]
 [patches.module]
-source = "src/core/merge.lua"
+source = "src/core/stacking.lua"
 before = "main.lua"
-name = "overflow/core/merge"
+name = "overflow/core/stacking"
 
 [[patches]]
 [patches.module]
-source = "src/core/quantity.lua"
+source = "src/integrations/overrides.lua"
 before = "main.lua"
-name = "overflow/core/quantity"
-
-[[patches]]
-[patches.module]
-source = "src/integrations/bulk_use.lua"
-before = "main.lua"
-name = "overflow/integrations/bulk_use"
-
-[[patches]]
-[patches.module]
-source = "src/integrations/perkeo.lua"
-before = "main.lua"
-name = "overflow/integrations/perkeo"
-
-[[patches]]
-[patches.module]
-source = "src/hooks/cardarea.lua"
-before = "main.lua"
-name = "overflow/hooks/cardarea"
+name = "overflow/integrations/overrides"
 
 [[patches]]
 [patches.module]
@@ -56,12 +38,6 @@ name = "overflow/hooks/card"
 source = "src/hooks/button_callbacks.lua"
 before = "main.lua"
 name = "overflow/hooks/button_callbacks"
-
-[[patches]]
-[patches.module]
-source = "src/ui/badge.lua"
-before = "main.lua"
-name = "overflow/ui/badge"
 
 [[patches]]
 [patches.module]
