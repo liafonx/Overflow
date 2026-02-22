@@ -59,7 +59,4 @@ SMODS.Joker:take_ownership("j_constellation", {
 })
 SMODS.current_mod.config_tab = function() return Overflow.overflowConfigTab() end
 
-to_big = to_big or function(num) return num or -1e300 end
-is_number = is_number or function(num) return type(num) == "number" end
-to_number = to_number or function(num) return num or -1e300 end
 

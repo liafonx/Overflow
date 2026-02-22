@@ -8,28 +8,25 @@ local DEFAULT_CONFIG = {
 
 local SORTING_MODE_MAP = {1, 2, 6, 7, 11}
 
-local function is_supported_sort_mode(mode)
-    for _, v in ipairs(SORTING_MODE_MAP) do
-        if v == mode then
-            return true
-        end
-    end
-    return false
-end
-
 function Overflow.get_sorting_mode_map()
     return SORTING_MODE_MAP
 end
 
+function Overflow.get_sorting_mode_index(mode)
+    for i, v in ipairs(SORTING_MODE_MAP) do
+        if v == mode then
+            return i
+        end
+    end
+    return nil
+end
+
 function Overflow.save_config()
-    local serialized = "return {"
-        .. " only_stack_negatives = " .. tostring(Overflow.config.only_stack_negatives or false)
-        .. ", fix_slots = " .. tostring(Overflow.config.fix_slots or false)
-        .. ", require_sellvalue = " .. tostring(Overflow.config.require_sellvalue ~= false)
-        .. ", indicator_pos = " .. tostring(Overflow.config.indicator_pos or 2)
-        .. ", sorting_mode = " .. tostring(Overflow.config.sorting_mode or 1)
-        .. "}"
-    love.filesystem.write("config/Overflow.lua", serialized)
+    local parts = {}
+    for k, _ in pairs(DEFAULT_CONFIG) do
+        parts[#parts + 1] = k .. " = " .. tostring(Overflow.config[k])
+    end
+    love.filesystem.write("config/Overflow.lua", "return {" .. table.concat(parts, ", ") .. "}")
 end
 
 function Overflow.load_config()
@@ -42,31 +39,26 @@ function Overflow.load_config()
             return loadstring(str)()
         end)
         if ok and type(loaded) == "table" then
-            local config = {
-                only_stack_negatives = loaded.only_stack_negatives,
-                fix_slots = loaded.fix_slots,
-                require_sellvalue = loaded.require_sellvalue,
-                indicator_pos = loaded.indicator_pos,
-                sorting_mode = loaded.sorting_mode,
-            }
-            if config.only_stack_negatives == nil then config.only_stack_negatives = DEFAULT_CONFIG.only_stack_negatives end
-            if config.fix_slots == nil then config.fix_slots = DEFAULT_CONFIG.fix_slots end
-            if config.require_sellvalue == nil then config.require_sellvalue = DEFAULT_CONFIG.require_sellvalue end
-            if config.indicator_pos == nil then config.indicator_pos = DEFAULT_CONFIG.indicator_pos end
-            if not is_supported_sort_mode(config.sorting_mode) then
+            local config = {}
+            for k, default in pairs(DEFAULT_CONFIG) do
+                if loaded[k] == nil then
+                    config[k] = default
+                else
+                    config[k] = loaded[k]
+                end
+            end
+            if not Overflow.get_sorting_mode_index(config.sorting_mode) then
                 config.sorting_mode = DEFAULT_CONFIG.sorting_mode
             end
             return config
         end
     end
 
-    return {
-        only_stack_negatives = DEFAULT_CONFIG.only_stack_negatives,
-        fix_slots = DEFAULT_CONFIG.fix_slots,
-        require_sellvalue = DEFAULT_CONFIG.require_sellvalue,
-        indicator_pos = DEFAULT_CONFIG.indicator_pos,
-        sorting_mode = DEFAULT_CONFIG.sorting_mode,
-    }
+    local config = {}
+    for k, v in pairs(DEFAULT_CONFIG) do
+        config[k] = v
+    end
+    return config
 end
 
 if not Overflow.config then
@@ -85,106 +77,40 @@ function Overflow.get_alignment(align)
     })[align]
 end
 
+local function partition_and_sort(hands, field, threshold, comparator, levelled_first)
+    local tbl = copy_table(hands)
+    local levelled = {}
+    local other = {}
+    for _, v in pairs(tbl) do
+        if to_big(G.GAME.hands[v][field]) > to_big(threshold) then
+            levelled[#levelled + 1] = v
+        else
+            other[#other + 1] = v
+        end
+    end
+    table.sort(levelled, function(a, b)
+        return comparator(G.GAME.hands[a][field], G.GAME.hands[b][field])
+    end)
+    tbl = {}
+    if levelled_first then
+        for _, v in ipairs(levelled) do tbl[#tbl + 1] = v end
+        for _, v in ipairs(other) do tbl[#tbl + 1] = v end
+    else
+        for _, v in ipairs(other) do tbl[#tbl + 1] = v end
+        for _, v in ipairs(levelled) do tbl[#tbl + 1] = v end
+    end
+    return tbl
+end
+
+local function desc(a, b) return to_big(a) > to_big(b) end
+local function asc(a, b) return to_big(a) < to_big(b) end
+
 function Overflow.sort(hands)
     local mode = Overflow.config.sorting_mode
-    local tbl, levelled, other
-
-    if mode == 2 then
-        tbl = copy_table(hands)
-        levelled = {}
-        other = {}
-        for _, v in pairs(tbl) do
-            if to_big(G.GAME.hands[v].level) > to_big(1) then
-                levelled[#levelled + 1] = v
-            else
-                other[#other + 1] = v
-            end
-        end
-        table.sort(levelled, function(a, b)
-            return to_big(G.GAME.hands[a].level) > to_big(G.GAME.hands[b].level)
-        end)
-        tbl = {}
-        for _, v in ipairs(levelled) do tbl[#tbl + 1] = v end
-        for _, v in ipairs(other) do
-            if to_big(G.GAME.hands[v].level) <= to_big(1) then
-                tbl[#tbl + 1] = v
-            end
-        end
-        return tbl
-    end
-
-    if mode == 6 then
-        tbl = copy_table(hands)
-        levelled = {}
-        other = {}
-        for _, v in pairs(tbl) do
-            if to_big(G.GAME.hands[v].played) > to_big(0) then
-                levelled[#levelled + 1] = v
-            else
-                other[#other + 1] = v
-            end
-        end
-        table.sort(levelled, function(a, b)
-            return to_big(G.GAME.hands[a].played) > to_big(G.GAME.hands[b].played)
-        end)
-        tbl = {}
-        for _, v in ipairs(levelled) do tbl[#tbl + 1] = v end
-        for _, v in ipairs(other) do
-            if to_big(G.GAME.hands[v].played) <= to_big(0) then
-                tbl[#tbl + 1] = v
-            end
-        end
-        return tbl
-    end
-
-    if mode == 7 then
-        tbl = copy_table(hands)
-        levelled = {}
-        other = {}
-        for _, v in pairs(tbl) do
-            if to_big(G.GAME.hands[v].level) > to_big(1) then
-                levelled[#levelled + 1] = v
-            else
-                other[#other + 1] = v
-            end
-        end
-        table.sort(levelled, function(a, b)
-            return to_big(G.GAME.hands[a].level) < to_big(G.GAME.hands[b].level)
-        end)
-        tbl = {}
-        for _, v in ipairs(other) do
-            if to_big(G.GAME.hands[v].level) <= to_big(1) then
-                tbl[#tbl + 1] = v
-            end
-        end
-        for _, v in ipairs(levelled) do tbl[#tbl + 1] = v end
-        return tbl
-    end
-
-    if mode == 11 then
-        tbl = copy_table(hands)
-        levelled = {}
-        other = {}
-        for _, v in pairs(tbl) do
-            if to_big(G.GAME.hands[v].played) > to_big(0) then
-                levelled[#levelled + 1] = v
-            else
-                other[#other + 1] = v
-            end
-        end
-        table.sort(levelled, function(a, b)
-            return to_big(G.GAME.hands[a].played) < to_big(G.GAME.hands[b].played)
-        end)
-        tbl = {}
-        for _, v in ipairs(other) do
-            if to_big(G.GAME.hands[v].played) <= to_big(0) then
-                tbl[#tbl + 1] = v
-            end
-        end
-        for _, v in ipairs(levelled) do tbl[#tbl + 1] = v end
-        return tbl
-    end
-
+    if mode == 2 then return partition_and_sort(hands, 'level', 1, desc, true) end
+    if mode == 6 then return partition_and_sort(hands, 'played', 0, desc, true) end
+    if mode == 7 then return partition_and_sort(hands, 'level', 1, asc, false) end
+    if mode == 11 then return partition_and_sort(hands, 'played', 0, asc, false) end
     return hands
 end
 

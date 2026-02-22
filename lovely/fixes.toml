@@ -124,42 +124,6 @@ overwrite = false
 
 [[patches]]
 [patches.pattern]
-target = "card.lua"
-pattern = '''#G.consumeables.cards + G.GAME.consumeable_buffer < G.consumeables.config.card_limit'''
-position = "at"
-payload = '''Overflow.has_consumeable_space(nil, true)'''
-match_indent = true
-times = 40
-
-[[patches]]
-[patches.pattern]
-target = "card.lua"
-pattern = '''G.consumeables.config.card_limit > #G.consumeables.cards'''
-position = "at"
-payload = '''Overflow.has_consumeable_space(nil, false)'''
-match_indent = true
-times = 20
-
-[[patches]]
-[patches.pattern]
-target = "card.lua"
-pattern = '''G.consumeables.config.card_limit - #G.consumeables.cards'''
-position = "at"
-payload = '''Overflow.get_consumeable_slots_remaining(nil, false)'''
-match_indent = true
-times = 20
-
-[[patches]]
-[patches.pattern]
-target = "card.lua"
-pattern = '''#G.consumeables.cards < G.consumeables.config.card_limit'''
-position = "at"
-payload = '''Overflow.has_consumeable_space(nil, false)'''
-match_indent = true
-times = 40
-
-[[patches]]
-[patches.pattern]
 target = '''=[SMODS _ "src/overrides.lua"]'''
 pattern = '''for _, v in ipairs(handlist or G.handlist) do'''
 position = "at"

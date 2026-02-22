@@ -1,13 +1,3 @@
-local function get_sorting_option_index(mode)
-    local map = Overflow.get_sorting_mode_map()
-    for i, v in ipairs(map) do
-        if v == mode then
-            return i
-        end
-    end
-    return 1
-end
-
 Overflow.overflowConfigTab = function()
     local sorting_mode_map = Overflow.get_sorting_mode_map()
     local sorting_mode_options = {
@@ -18,7 +8,7 @@ Overflow.overflowConfigTab = function()
         localize('sorting_pl'),
     }
 
-    local sorting_option = get_sorting_option_index(Overflow.config.sorting_mode)
+    local sorting_option = Overflow.get_sorting_mode_index(Overflow.config.sorting_mode) or 1
 
     local ovrf_nodes = {}
     local left_settings = {n = G.UIT.C, config = {align = 'tl', padding = 0.05}, nodes = {}}

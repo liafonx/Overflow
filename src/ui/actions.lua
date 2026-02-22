@@ -6,6 +6,8 @@ local ACTION_CHILDREN = {
     'merge',
     'merge_all',
 }
+local ACTION_Y_START = 0.35
+local ACTION_Y_STEP = 0.5
 
 local function remove_action_children(card)
     for _, child in ipairs(ACTION_CHILDREN) do
@@ -54,17 +56,8 @@ local function add_action_button(card, child_key, label_key, button, func, y)
     })
 end
 
-local function count_merge_targets(card)
-    local total = 0
-    if not (G.consumeables and G.consumeables.cards) then
-        return 0
-    end
-    for _, v in ipairs(G.consumeables.cards) do
-        if v ~= card and Overflow.can_merge(v, card) then
-            total = total + 1
-        end
-    end
-    return total
+local function get_merge_scan(card)
+    return Overflow.scan_merge_targets(card, nil, nil)
 end
 
 local highlight_ref = Card.highlight
@@ -72,34 +65,32 @@ function Card:highlight(is_highlighted)
     remove_action_children(self)
 
     if is_highlighted and self.area == G.consumeables and self.config.center.set ~= 'Joker' then
-        local y = 0
+        local y = ACTION_Y_START
         local qty = self.qty or 1
-        local merge_target = Overflow.can_merge(self)
-        local merge_count = count_merge_targets(self)
+        local merge_target, merge_count = get_merge_scan(self)
 
         if Overflow.can_bulk_use(self) and to_big(qty) > to_big(1) then
             add_action_button(self, 'bulk_use', 'k_bulk_use', 'bulk_use', 'can_bulk_use', y)
-            y = y + 0.5
+            y = y + ACTION_Y_STEP
         end
 
         if Overflow.mass_use_sets[self.config.center.set]
-            and Overflow.can_mass_use(self.config.center.set, self.area)
-            and G.FUNCS.can_mass_use({config = {ref_table = self}})
+            and Overflow.has_mass_use(self.config.center.set, self.area)
         then
             add_action_button(self, 'mass_use', 'k_mass_use', 'mass_use', 'can_mass_use', y)
-            y = y + 0.5
+            y = y + ACTION_Y_STEP
         end
 
         if not self:isInfinite() and to_big(qty) > to_big(1) then
             add_action_button(self, 'split_one', 'k_split_one', 'split_one', 'can_split_one', y)
-            y = y + 0.5
+            y = y + ACTION_Y_STEP
             add_action_button(self, 'split_half', 'k_split_half', 'split_half', 'can_split_half', y)
-            y = y + 0.5
+            y = y + ACTION_Y_STEP
         end
 
         if merge_target then
             add_action_button(self, 'merge', 'k_merge', 'merge', 'can_merge', y)
-            y = y + 0.5
+            y = y + ACTION_Y_STEP
             if merge_count > 1 then
                 add_action_button(self, 'merge_all', 'k_merge_all', 'merge_all', 'can_merge_all', y)
             end
@@ -130,10 +121,7 @@ G.FUNCS.bulk_use = function(e)
     card.qty_used = card:getQty()
     Overflow.set_amount(card, nil)
     card.ability.bypass_aleph = true
-    if card.children.overflow_ui then
-        card.children.overflow_ui:remove()
-        card.children.overflow_ui = nil
-    end
+    card:remove_overflow_ui()
     G.FUNCS.use_card(e, false, true)
 end
 
@@ -151,29 +139,28 @@ G.FUNCS.can_split_one = function(e)
 end
 
 G.FUNCS.split_one = function(e)
-    local mod = G.GAME.modifiers.entr_twisted
-    G.GAME.modifiers.entr_twisted = nil
+    Overflow.suppress_entr_twisted(function()
+        local card = e.config.ref_table
+        local new_card = copy_card(card)
 
-    local card = e.config.ref_table
-    local new_card = copy_card(card)
+        Overflow.set_amount(new_card, nil)
+        Overflow.set_amount(card, (card.qty or 1) - 1)
 
-    Overflow.set_amount(new_card, nil)
-    Overflow.set_amount(card, (card.qty or 1) - 1)
+        new_card:add_to_deck()
+        new_card.ability.split = true
+        G.E_MANAGER:add_event(Event({func = function()
+            new_card.ability.split = nil
+            return true
+        end}))
 
-    new_card:add_to_deck()
-    new_card.ability.split = true
-    G.E_MANAGER:add_event(Event({func = function()
-        new_card.ability.split = nil
-        return true
-    end}))
-
-    G.consumeables:emplace(new_card)
-    G.GAME.modifiers.entr_twisted = mod
+        G.consumeables:emplace(new_card)
+    end)
 end
 
 G.FUNCS.can_merge = function(e)
     local card = e.config.ref_table
-    if Overflow.can_merge(card) then
+    local merge_target = get_merge_scan(card)
+    if merge_target then
         e.config.colour = G.C.SECONDARY_SET[card.config.center.set]
         e.config.button = 'merge'
         e.states.visible = true
@@ -186,7 +173,7 @@ end
 
 G.FUNCS.merge = function(e)
     local card = e.config.ref_table
-    local v = Overflow.can_merge(card)
+    local v = get_merge_scan(card)
     if v then
         Overflow.set_amount(v, (v.qty or 1) + (card.qty or 1))
         card.ability.bypass_aleph = true
@@ -216,45 +203,42 @@ G.FUNCS.can_split_half = function(e)
 end
 
 G.FUNCS.split_half = function(e)
-    local mod = G.GAME.modifiers.entr_twisted
-    G.GAME.modifiers.entr_twisted = nil
+    Overflow.suppress_entr_twisted(function()
+        local card = e.config.ref_table
+        if not card.qty or to_big(card.qty) <= to_big(1) then
+            return
+        end
 
-    local card = e.config.ref_table
-    if not card.qty or to_big(card.qty) <= to_big(1) then
-        G.GAME.modifiers.entr_twisted = mod
-        return
-    end
+        local new_card = copy_card(card)
+        local top_half = math.floor(card.qty / 2)
+        local bottom_half = card.qty - top_half
 
-    local new_card = copy_card(card)
-    local top_half = math.floor(card.qty / 2)
-    local bottom_half = card.qty - top_half
+        new_card.bypass = true
+        card.bypass = true
 
-    new_card.bypass = true
-    card.bypass = true
+        Overflow.set_amount(new_card, bottom_half)
+        Overflow.set_amount(card, top_half)
 
-    Overflow.set_amount(new_card, bottom_half)
-    Overflow.set_amount(card, top_half)
+        new_card:add_to_deck()
+        new_card.ability.split = true
+        G.E_MANAGER:add_event(Event({func = function()
+            new_card.ability.split = nil
+            return true
+        end}))
 
-    new_card:add_to_deck()
-    new_card.ability.split = true
-    G.E_MANAGER:add_event(Event({func = function()
-        new_card.ability.split = nil
-        return true
-    end}))
+        G.consumeables:emplace(new_card)
 
-    G.consumeables:emplace(new_card)
-
-    new_card:create_overflow_ui()
-    card:create_overflow_ui()
-    new_card.bypass = nil
-    card.bypass = nil
-
-    G.GAME.modifiers.entr_twisted = mod
+        new_card:create_overflow_ui()
+        card:create_overflow_ui()
+        new_card.bypass = nil
+        card.bypass = nil
+    end)
 end
 
 G.FUNCS.can_merge_all = function(e)
     local card = e.config.ref_table
-    if Overflow.can_merge(card) and count_merge_targets(card) > 1 then
+    local _, merge_count = get_merge_scan(card)
+    if merge_count > 1 then
         e.config.colour = G.C.SECONDARY_SET[card.config.center.set]
         e.config.button = 'merge_all'
         e.states.visible = true
